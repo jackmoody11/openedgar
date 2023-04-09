@@ -48,10 +48,10 @@ def is_access_denied_file(remote_path: str, client=None):
     """
     # Create client if not passed
     buffer = openedgar.clients.s3.get_buffer(remote_path, client)
-    if b"<Error><Code>AccessDenied</Code><Message>Access Denied</Message><RequestId>" in buffer:
-        return True
-    else:
-        return False
+    return (
+        b"<Error><Code>AccessDenied</Code><Message>Access Denied</Message><RequestId>"
+        in buffer
+    )
 
 
 def is_empty_file(remote_path: str, client=None):
@@ -68,10 +68,7 @@ def is_empty_file(remote_path: str, client=None):
     # HEAD object
     s3_object = client.head_object(Bucket=S3_BUCKET, Key=remote_path)
 
-    if s3_object["ContentLength"] == 0:
-        return True
-    else:
-        return False
+    return s3_object["ContentLength"] == 0
 
 
 def is_rate_limited_file(remote_path: str, size_only: bool = True, client=None):
@@ -91,19 +88,13 @@ def is_rate_limited_file(remote_path: str, size_only: bool = True, client=None):
         # HEAD object
         s3_object = client.head_object(Bucket=S3_BUCKET, Key=remote_path)
 
-        if s3_object["ContentLength"] == 2139:
-            return True
-        else:
-            return False
+        return s3_object["ContentLength"] == 2139
     else:
         # GET object
         s3_object = client.get_object(Bucket=S3_BUCKET, Key=remote_path)
 
         buffer = s3_object["Body"].read()
-        if b"SEC.gov | Request Rate Threshold Exceeded" in buffer:
-            return True
-        else:
-            return False
+        return b"SEC.gov | Request Rate Threshold Exceeded" in buffer
 
 
 def clean_rate_limited_files(cik: int = None, fix: bool = True, client=None):
@@ -134,11 +125,7 @@ def clean_rate_limited_files(cik: int = None, fix: bool = True, client=None):
 
     for cik_path in cik_path_list:
         for remote_path in openedgar.clients.s3.list_path(cik_path, client=client):
-            # Check if bad
-            is_bad = is_rate_limited_file(remote_path, client=client)
-
-            # Track if bad
-            if is_bad:
+            if is_bad := is_rate_limited_file(remote_path, client=client):
                 logger.info("Found bad file: {0}".format(remote_path))
                 file_list.append(remote_path)
 
@@ -147,11 +134,11 @@ def clean_rate_limited_files(cik: int = None, fix: bool = True, client=None):
                     logger.info("Fixing file: {0}".format(remote_path))
 
                     # Ensure path is correct
-                    if not remote_path.strip("/").startswith("Archives/"):
-                        edgar_url = "/Archives/{0}".format(remote_path.strip("/"))
-                    else:
-                        edgar_url = remote_path
-
+                    edgar_url = (
+                        remote_path
+                        if remote_path.strip("/").startswith("Archives/")
+                        else "/Archives/{0}".format(remote_path.strip("/"))
+                    )
                     # Get buffer from EDGAR
                     buffer, _ = openedgar.clients.edgar.get_buffer(edgar_url)
 
@@ -193,11 +180,7 @@ def clean_empty_files(cik: int = None, fix: bool = True, client=None):
 
     for cik_path in cik_path_list:
         for remote_path in openedgar.clients.s3.list_path(cik_path, client=client):
-            # Check if bad
-            is_bad = is_empty_file(remote_path, client=client)
-
-            # Track if bad
-            if is_bad:
+            if is_bad := is_empty_file(remote_path, client=client):
                 logger.info("Found bad file: {0}".format(remote_path))
                 file_list.append(remote_path)
 
@@ -206,11 +189,11 @@ def clean_empty_files(cik: int = None, fix: bool = True, client=None):
                     logger.info("Fixing file: {0}".format(remote_path))
 
                     # Ensure path is correct
-                    if not remote_path.strip("/").startswith("Archives/"):
-                        edgar_url = "/Archives/{0}".format(remote_path.strip("/"))
-                    else:
-                        edgar_url = remote_path
-
+                    edgar_url = (
+                        remote_path
+                        if remote_path.strip("/").startswith("Archives/")
+                        else "/Archives/{0}".format(remote_path.strip("/"))
+                    )
                     # Get buffer from EDGAR
                     buffer, _ = openedgar.clients.edgar.get_buffer(edgar_url)
 
@@ -256,11 +239,7 @@ def clean_access_denied_files(cik: int = None, fix: bool = True, client=None):
 
     for cik_path in cik_path_list:
         for remote_path in openedgar.clients.s3.list_path(cik_path, client=client):
-            # Check if bad
-            is_bad = is_access_denied_file(remote_path, client=client)
-
-            # Track if bad
-            if is_bad:
+            if is_bad := is_access_denied_file(remote_path, client=client):
                 logger.info("Found bad file: {0}".format(remote_path))
                 file_list.append(remote_path)
 
@@ -268,11 +247,9 @@ def clean_access_denied_files(cik: int = None, fix: bool = True, client=None):
                 if fix:
                     logger.info("Removing file: {0}".format(remote_path))
 
-                    # Replace bad remote path on S3
-                    success = openedgar.clients.s3.delete_path(remote_path, client)
-
-                    # Log fix
-                    if success:
+                    if success := openedgar.clients.s3.delete_path(
+                        remote_path, client
+                    ):
                         logger.info("Deleted {0}...".format(remote_path))
                     else:
                         logger.error("Unable to delete {0}...".format(remote_path))

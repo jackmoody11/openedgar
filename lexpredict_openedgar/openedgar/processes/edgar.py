@@ -59,7 +59,7 @@ def download_filing_index_data(year: int = None):
 
     path_list = []
     configured_client = os.environ["CLIENT_TYPE"]
-    logger.info(msg="Configured client is: {}".format(configured_client))
+    logger.info(msg=f"Configured client is: {configured_client}")
     path_prefix = str()
 
     if configured_client is None or configured_client == "S3":
@@ -124,11 +124,7 @@ def process_all_filing_index(year: int = None, form_type_list: Iterable[str] = N
     # Process each file
     for s3_path, _, is_processed in file_path_list:
         # Skip if only processing new files and this one is old
-        if new_only and not is_processed:
-            logger.info("Processing filing index for {0}...".format(s3_path))
-            _ = process_filing_index.delay(client_type, s3_path, form_type_list=form_type_list, store_raw=store_raw,
-                                           store_text=store_text)
-        elif not new_only:
+        if new_only and not is_processed or not new_only:
             logger.info("Processing filing index for {0}...".format(s3_path))
             _ = process_filing_index.delay(client_type, s3_path, form_type_list=form_type_list, store_raw=store_raw,
                                            store_text=store_text)
