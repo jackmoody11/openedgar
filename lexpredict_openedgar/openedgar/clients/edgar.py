@@ -138,7 +138,7 @@ def list_path(remote_path: str):
             if href.startswith("/"):
                 good_url_list.append(href)
             else:
-                good_url_list.append("/".join(s for s in [remote_path, href.lstrip("/")]))
+                good_url_list.append("/".join([remote_path, href.lstrip("/")]))
     except KeyError as e:
         logger.error("Unable to find main-content tag in {0}; {1}".format(remote_path, e))
         return None
@@ -162,7 +162,7 @@ def list_index_by_year(year: int):
     form_index_list = []
 
     # Get year directory list
-    year_index_uri = urllib.parse.urljoin(HTTP_SEC_INDEX_PATH, str(year) + "/")
+    year_index_uri = urllib.parse.urljoin(HTTP_SEC_INDEX_PATH, f"{year}/")
     year_root_list = list_path(year_index_uri)
     print(year_root_list)
 
@@ -311,10 +311,11 @@ def get_cfia_index():
     remote_buffer = requests.get("https://www.sec.gov/divisions/corpfin/organization/cfia.shtml").content
     html_doc = lxml.html.fromstring(remote_buffer)
 
-    # Get index values
-    index_values = [a.attrib['href'].split('-').pop()[:-4] for a in html_doc.findall(".//a") if
-                    a.attrib['href'].startswith('cfia-')]
-    return index_values
+    return [
+        a.attrib['href'].split('-').pop()[:-4]
+        for a in html_doc.findall(".//a")
+        if a.attrib['href'].startswith('cfia-')
+    ]
 
 
 def get_cfia_table(index: str):
@@ -334,13 +335,10 @@ def get_cfia_table(index: str):
 
     # Parse table into list of tuples
     table_element = html_doc.get_element_by_id("cos")
-    table_data = []
-    for row in table_element.findall(".//tr"):
-        table_data.append((list(row)[0].text,
-                           list(row)[1].text,
-                           list(row)[2].text))
-
-    return table_data
+    return [
+        (list(row)[0].text, list(row)[1].text, list(row)[2].text)
+        for row in table_element.findall(".//tr")
+    ]
 
 
 def get_cik_path(cik):

@@ -56,9 +56,11 @@ class S3Client:
         Get S3 resource.
         :return: returns boto3 S3 resource object
         """
-        # Create S3 resource
-        s3 = boto3.resource('s3', aws_access_key_id=S3_ACCESS_KEY, aws_secret_access_key=S3_SECRET_KEY)
-        return s3
+        return boto3.resource(
+            's3',
+            aws_access_key_id=S3_ACCESS_KEY,
+            aws_secret_access_key=S3_SECRET_KEY,
+        )
 
     def get_client(self):
         """
@@ -76,8 +78,7 @@ class S3Client:
         """
         # Get bucket
         s3 = boto3.resource('s3', aws_access_key_id=S3_ACCESS_KEY, aws_secret_access_key=S3_SECRET_KEY)
-        bucket = s3.Bucket(S3_BUCKET)
-        return bucket
+        return s3.Bucket(S3_BUCKET)
 
     def path_exists(self, path: str, client=None):
         """
@@ -136,9 +137,7 @@ class S3Client:
         # Paginate through results
         path_objects = []
         for result in paginator.paginate(Bucket=S3_BUCKET, Delimiter='/', Prefix=path):
-            for o in result.get("Contents"):
-                path_objects.append(o["Key"])
-
+            path_objects.extend(o["Key"] for o in result.get("Contents"))
         return path_objects
 
     def list_path_folders(self, path: str, client=None, limit: int = None):
@@ -159,13 +158,10 @@ class S3Client:
         paginator = client.get_paginator('list_objects_v2')
         query = paginator.paginate(Bucket=S3_BUCKET, Prefix=path, Delimiter='/')
         for result in query:
-            for prefix in result.get('CommonPrefixes'):
-                folders.append(prefix.get('Prefix'))
-
+            folders.extend(prefix.get('Prefix') for prefix in result.get('CommonPrefixes'))
             # Return limit subset if requested
-            if limit is not None:
-                if len(folders) > limit:
-                    return folders[0:limit]
+            if limit is not None and len(folders) > limit:
+                return folders[:limit]
 
         return folders
 
@@ -188,10 +184,7 @@ class S3Client:
         buffer = s3_object["Body"].read()
 
         # Deflate if requested
-        if deflate:
-            return zlib.decompress(buffer)
-        else:
-            return buffer
+        return zlib.decompress(buffer) if deflate else buffer
 
     def get_file(self, remote_path: str, local_path: str, client=None, deflate: bool = True):
         """
@@ -246,7 +239,7 @@ class S3Client:
 
         # Upload
         response = client.put_object(Bucket=S3_BUCKET, Key=remote_path, Body=upload_buffer)
-        return True if response["ResponseMetadata"]["HTTPStatusCode"] == 200 else False
+        return response["ResponseMetadata"]["HTTPStatusCode"] == 200
 
     def put_file(self, remote_path: str, local_path: str, client=None, deflate: bool = True):
         """

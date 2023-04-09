@@ -97,10 +97,7 @@ def extract_text(buffer: Union[bytes, str]):
     # Extract HTML using Tika
     tika_results = tika.parser.from_buffer(buffer, TIKA_ENDPOINT)
 
-    if "content" in tika_results:
-        return tika_results["content"]
-
-    return ""
+    return tika_results["content"] if "content" in tika_results else ""
 
 
 def parse_index_file(file_name: str, double_gz: bool = False):
@@ -112,7 +109,7 @@ def parse_index_file(file_name: str, double_gz: bool = False):
     """
     # Log entrance
     if not os.path.exists(file_name):
-        if os.path.exists(file_name + ".gz"):
+        if os.path.exists(f"{file_name}.gz"):
             file_name += ".gz"
         else:
             logger.error("File {0} does not exist on filesystem.".format(file_name))
@@ -156,15 +153,15 @@ def parse_index_file(file_name: str, double_gz: bool = False):
                 logger.warning("Double-decompressing buffer for {0}".format(file_name))
             except UnicodeDecodeError as g:
                 logger.error("Error decoding {0}: {1}".format(file_name, g))
-                logger.error("First 10 bytes: {0}".format(index_buffer[0:10]))
+                logger.error("First 10 bytes: {0}".format(index_buffer[:10]))
                 return pandas.DataFrame()
             except OSError as h:
                 logger.error("Error decoding {0}: {1}".format(file_name, h))
-                logger.error("First 10 bytes: {0}".format(index_buffer[0:10]))
+                logger.error("First 10 bytes: {0}".format(index_buffer[:10]))
                 return pandas.DataFrame()
         except OSError as h:
             logger.error("Error decoding {0}: {1}".format(file_name, h))
-            logger.error("First 10 bytes: {0}".format(index_buffer[0:10]))
+            logger.error("First 10 bytes: {0}".format(index_buffer[:10]))
             return pandas.DataFrame()
 
     # Get header line and data line starts
@@ -262,13 +259,9 @@ def parse_filing(buffer: Union[bytes, str], extract: bool = False):
         if "<SEC-HEADER>" in buffer:
             header_p0 = buffer.find("<SEC-HEADER>")
             header_p1 = buffer.find("</SEC-HEADER>")
-        elif "<IMS-HEADER>" in buffer:
+        else:
             header_p0 = buffer.find("<IMS-HEADER>")
             header_p1 = buffer.find("</IMS-HEADER>")
-        else:
-            header_p0 = -1
-            header_p1 = -1
-
         if header_p0 == -1 or header_p1 == -1:
             logger.error("Invalid HEADER block found in document")
         else:
@@ -351,7 +344,7 @@ def parse_filing_document(document_buffer: Union[bytes, str], extract: bool = Fa
 
     # Check content types
     is_uuencoded = False
-    doc_text_head = doc_content[0:100]
+    doc_text_head = doc_content[:100]
     doc_text_head_upper = doc_text_head.upper()
 
     if "<PDF>" in doc_text_head_upper:
@@ -383,11 +376,7 @@ def parse_filing_document(document_buffer: Union[bytes, str], extract: bool = Fa
     doc_sha1 = hashlib.sha1(doc_content).hexdigest()
 
     # extract text from tika if requested
-    if extract:
-        doc_content_text = extract_text(doc_content)
-    else:
-        doc_content_text = None
-
+    doc_content_text = extract_text(doc_content) if extract else None
     return {"type": doc_type[0] if len(doc_type) > 0 else None,
             "sequence": doc_sequence[0] if len(doc_sequence) > 0 else None,
             "file_name": doc_file_name[0] if len(doc_file_name) > 0 else None,

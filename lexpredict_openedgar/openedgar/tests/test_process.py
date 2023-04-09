@@ -34,7 +34,6 @@ def test_process_filing():
     if not S3_BUCKET:
         # Catch inside testing
         return True
-    else:
-        client = S3Client()
-        buffer = client.get_buffer("edgar/data/1000180/0000950134-05-005462.txt")
-        openedgar.tasks.process_filing(buffer)
+    client = S3Client()
+    buffer = client.get_buffer("edgar/data/1000180/0000950134-05-005462.txt")
+    openedgar.tasks.process_filing(buffer)

@@ -130,11 +130,8 @@ def create_filing_error(row, filing_path: str):
 
     try:
         date_filed = dateutil.parser.parse(str(row["Date Filed"])).date()
-    except ValueError:
+    except (ValueError, IndexError):
         date_filed = None
-    except IndexError:
-        date_filed = None
-
     # Create empty error filing record
     filing = Filing()
     filing.form_type = form_type
@@ -200,14 +197,10 @@ def process_filing_index(client_type: str, file_path: str, filing_index_buffer: 
     # Log entry
     logger.info("Processing filing index {0}...".format(file_path))
 
-    if client_type == "S3":
-        client = S3Client()
-    else:
-        client = LocalClient()
-
+    client = S3Client() if client_type == "S3" else LocalClient()
     # Retrieve buffer if not passed
     if filing_index_buffer is None:
-        logger.info("Retrieving filing index buffer for: {}...".format(file_path))
+        logger.info(f"Retrieving filing index buffer for: {file_path}...")
         filing_index_buffer = client.get_buffer(file_path)
 
     # Write to disk to handle headaches
@@ -223,10 +216,12 @@ def process_filing_index(client_type: str, file_path: str, filing_index_buffer: 
     bad_record_count = 0
     for _, row in filing_index_data.iterrows():
         # Check for form type whitelist
-        if form_type_list is not None:
-            if row["Form Type"] not in form_type_list:
-                logger.info("Skipping filing {0} with form type {1}...".format(row["File Name"], row["Form Type"]))
-                continue
+        if (
+            form_type_list is not None
+            and row["Form Type"] not in form_type_list
+        ):
+            logger.info("Skipping filing {0} with form type {1}...".format(row["File Name"], row["Form Type"]))
+            continue
 
         # Cleanup path
         if row["File Name"].lower().startswith("data/"):
@@ -262,10 +257,12 @@ def process_filing_index(client_type: str, file_path: str, filing_index_buffer: 
                 # Upload
                 client.put_buffer(filing_path, filing_buffer)
 
-                logger.info("Downloaded from EDGAR and uploaded to {}...".format(client_type))
+                logger.info(f"Downloaded from EDGAR and uploaded to {client_type}...")
             else:
                 # Download
-                logger.info("File already stored on {}, retrieving and processing...".format(client_type))
+                logger.info(
+                    f"File already stored on {client_type}, retrieving and processing..."
+                )
                 filing_buffer = client.get_buffer(filing_path)
 
             # Parse
@@ -472,7 +469,7 @@ def search_filing_document_sha1(client, sha1: str, term_list: Iterable[str], sea
         document_contents = document_buffer
     elif token_search:
         document_contents = lexnlp.nlp.en.tokens.get_token_list(document_buffer)
-    elif stem_search:
+    else:
         document_contents = lexnlp.nlp.en.tokens.get_stem_list(document_buffer)
 
     # For term in term list
@@ -508,7 +505,7 @@ def search_filing_document_sha1(client, sha1: str, term_list: Iterable[str], sea
             results.append(result)
 
     # Create if any
-    if len(results) > 0:
+    if results:
         SearchQueryResult.objects.bulk_create(results)
     logger.info("Found {0} search terms in document sha1={1}".format(len(results), sha1))
     return True

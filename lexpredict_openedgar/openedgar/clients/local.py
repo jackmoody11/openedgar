@@ -46,10 +46,7 @@ class LocalClient:
         dir_name = os.path.dirname(file_path)
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
-        if write_bytes:
-            mode="wb"
-        else:
-            mode="w"
+        mode = "wb" if write_bytes else "w"
         with open(file_path, mode=mode) as localfile:
             localfile.write(buffer)
 
